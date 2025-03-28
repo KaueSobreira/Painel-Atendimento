@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Painel de Atendimento</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            height: 100vh;
+            margin: 0;
+        }
+
+        /* Estilo da barra lateral */
+        .sidebar {
+            width: 250px;
+            background: #f0f0f0;
+            border-right: 1px solid #ccc;
+            padding: 10px;
+            overflow-y: auto;
+        }
+
+        .sidebar h2 {
+            text-align: center;
+            margin-bottom: 10px;
+        }
+
+        .contact {
+            padding: 10px;
+            border-bottom: 1px solid #ddd;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .contact:hover {
+            background: #ddd;
+        }
+
+        /* Estilo da área do chat */
+        .chat-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .chat-header {
+            background: #007bff;
+            color: white;
+            padding: 10px;
+            text-align: center;
+            font-weight: bold;
+        }
+
+        .messages {
+            flex: 1;
+            padding: 10px;
+            overflow-y: auto;
+            background: #f9f9f9;
+        }
+
+        .message {
+            margin-bottom: 10px;
+            padding: 8px 12px;
+            border-radius: 10px;
+            max-width: 60%;
+        }
+
+        .sent {
+            background: #dcf8c6;
+            margin-left: auto;
+        }
+
+        .received {
+            background: #fff;
+            border: 1px solid #ccc;
+        }
+
+        /* Input de resposta */
+        .message-input {
+            display: flex;
+            padding: 10px;
+            background: #f0f0f0;
+        }
+
+        .message-input input {
+            flex: 1;
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+
+        .message-input button {
+            margin-left: 10px;
+            padding: 8px 12px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        .message-input button:hover {
+            background: #0056b3;
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- Barra lateral com atendimentos -->
+    <div class="sidebar">
+        <h2>📞 Atendimentos</h2>
+        <div id="contacts"></div>
+    </div>
+
+    <!-- Área do chat -->
+    <div class="chat-container">
+        <div class="chat-header">Selecione um contato</div>
+        <div class="messages" id="chat"></div>
+        <div class="message-input">
+            <input type="text" id="response" placeholder="Digite sua resposta...">
+            <button onclick="sendResponse()">Enviar</button>
+        </div>
+    </div>
+
+    <script>
+        const ws = new WebSocket("ws://localhost:3000");
+        let currentContact = null;
+        let messages = {}; // Armazena as mensagens de cada contato
+
+        ws.onopen = () => console.log("✅ Conectado ao WebSocket");
+
+        // Atualize o handler onmessage no seu index.html:
+
+        ws.onmessage = (event) => {
+            console.log("📩 Mensagem recebida:", event.data);
+
+            try {
+                const messageData = JSON.parse(event.data);
+                const sender = messageData.from;
+                const text = messageData.text;
+                const messageType = messageData.type || "received"; // Padrão para mensagens recebidas
+
+                if (!messages[sender]) {
+                    messages[sender] = [];
+                    addContact(sender);
+                }
+
+                messages[sender].push({
+                    from: messageType === "received" ? sender : "Você",
+                    text,
+                    type: messageType
+                });
+
+                if (currentContact === sender) {
+                    renderChat();
+                    // Role para baixo automaticamente
+                    const chatDiv = document.getElementById("chat");
+                    chatDiv.scrollTop = chatDiv.scrollHeight;
+                }
+
+                // Notificação para contatos não selecionados
+                if (currentContact !== sender) {
+                    const contactElement = document.getElementById(`contact-${sender}`);
+                    if (contactElement) {
+                        contactElement.style.fontWeight = "bold";
+                        contactElement.style.backgroundColor = "#e6f7ff";
+                    }
+                }
+
+            } catch (error) {
+                console.error("❌ Erro ao processar mensagem:", error, event.data);
+            }
+        };
+
+        function addContact(contact) {
+            const contactList = document.getElementById("contacts");
+            if (!document.getElementById(`contact-${contact}`)) {
+                const contactDiv = document.createElement("div");
+                contactDiv.classList.add("contact", "new-message", "pulse");
+                contactDiv.id = `contact-${contact}`;
+
+                // Mostra apenas o número sem o @c.us para melhor legibilidade
+                const displayName = contact.includes('@')
+                    ? contact.split('@')[0]
+                    : contact;
+
+                contactDiv.innerText = displayName;
+                contactDiv.onclick = () => {
+                    openChat(contact);
+                    // Remove os estilos de notificação quando o contato é clicado
+                    contactDiv.classList.remove("new-message", "pulse");
+                };
+                contactList.appendChild(contactDiv);
+            }
+        }
+
+        function openChat(contact) {
+            currentContact = contact;
+            document.querySelector(".chat-header").innerText = `Chat com ${contact}`;
+            renderChat();
+        }
+
+        function renderChat() {
+            const chatDiv = document.getElementById("chat");
+            chatDiv.innerHTML = "";
+            if (messages[currentContact]) {
+                messages[currentContact].forEach(msg => {
+                    const msgDiv = document.createElement("div");
+                    msgDiv.classList.add("message", msg.type);
+                    msgDiv.innerText = msg.text;
+                    chatDiv.appendChild(msgDiv);
+                });
+            }
+        }
+
+        function sendResponse() {
+            const input = document.getElementById("response");
+            const text = input.value.trim();
+
+            if (!text || !currentContact) {
+                alert("Selecione um contato e digite uma resposta!");
+                return;
+            }
+
+            // Mostra feedback visual de carregamento
+            const sendButton = document.querySelector(".message-input button");
+            sendButton.disabled = true;
+            sendButton.innerHTML = '<span class="loader"></span> Enviando...';
+
+            fetch("http://localhost:3000/send-message", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    to: currentContact,
+                    text
+                })
+            })
+                .then(response => {
+                    if (!response.ok) {
+                        return response.json().then(err => { throw err; });
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    console.log("✅ Resposta enviada:", data);
+
+                    if (!messages[currentContact]) {
+                        messages[currentContact] = [];
+                    }
+
+                    messages[currentContact].push({
+                        from: "Você",
+                        text,
+                        type: "sent"
+                    });
+
+                    renderChat();
+                    input.value = "";
+
+                    // Role para baixo automaticamente
+                    const chatDiv = document.getElementById("chat");
+                    chatDiv.scrollTop = chatDiv.scrollHeight;
+                })
+                .catch(error => {
+                    console.error("❌ Erro ao enviar resposta:", error);
+                    alert(`Erro ao enviar mensagem: ${error.message || 'Erro desconhecido'}\n\nSolução: ${error.solution || 'Tente novamente mais tarde'}`);
+                })
+                .finally(() => {
+                    sendButton.disabled = false;
+                    sendButton.textContent = 'Enviar';
+                });
+        }
+    </script>
+
+</body>
+
+</html>
