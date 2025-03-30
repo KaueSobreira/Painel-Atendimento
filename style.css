@@ -1,0 +1,128 @@
+body {
+    font-family: Arial, sans-serif;
+    margin: 0;
+    padding: 0;
+    background-color: #f4f4f4;
+}
+
+#menu {
+    background-color: #333;
+    /* overflow: hidden; */
+    position: sticky;
+    top: 0;
+    width: 100%;
+}
+
+#menu li {
+    list-style-type: none;
+    display: inline-block;
+    position: relative;
+}
+
+#menu a {
+    color: white;
+    text-decoration: none;
+    padding: 14px 20px;
+    display: block;
+    text-align: center;
+}
+
+#menu li a:hover {
+    background-color: #575757;
+}
+
+/* Submenu */
+#menu li ul {
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    background-color: #444;
+    list-style-type: none;
+    padding: 0;
+    margin: 0;
+    min-width: 150px;
+}
+
+#menu li:hover > ul {
+    display: block;
+    animation: slideIn 0.3s ease-in-out;
+}
+
+#menu li ul li a {
+    padding: 10px 20px;
+    background-color: #444;
+    color: white;
+}
+
+#menu li ul li a:hover {
+    background-color: #666;
+}
+
+/* Animação de entrada do submenu */
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Estilo do formulário de login */
+.login-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    background-color: #eaeaea;
+}
+
+form {
+    background-color: white;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    width: 300px;
+    text-align: center;
+}
+
+form p {
+    margin: 10px 0;
+}
+
+input[type="text"], input[type="password"] {
+    width: 100%;
+    padding: 10px;
+    margin: 8px 0;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+}
+
+input[type="submit"] {
+    background-color: #333;
+    color: white;
+    padding: 10px 20px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    width: 100%;
+}
+
+input[type="submit"]:hover {
+    background-color: #575757;
+}
+
+/* Responsividade */
+@media (max-width: 768px) {
+    #menu li {
+        display: block;
+        text-align: left;
+    }
+
+    form {
+        width: 90%;
+    }
+}

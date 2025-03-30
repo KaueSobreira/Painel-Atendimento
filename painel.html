@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Painel de Atendimento</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            height: 100vh;
+            margin: 0;
+        }
+
+        .sidebar {
+            width: 250px;
+            background: #f0f0f0;
+            border-right: 1px solid #ccc;
+            padding: 10px;
+            overflow-y: auto;
+        }
+
+        .sidebar h2 {
+            text-align: center;
+        }
+
+        .contact {
+            padding: 10px;
+            border-bottom: 1px solid #ddd;
+            cursor: pointer;
+            transition: background 0.2s;
+            display: flex;
+            align-items: center;
+        }
+
+        .contact:hover, .contact.active {
+            background: #007bff;
+            color: white;
+        }
+
+        .contact img {
+            width: 35px;
+            height: 35px;
+            border-radius: 50%;
+            margin-right: 10px;
+        }
+
+        .contact .name {
+            flex: 1;
+            font-weight: bold;
+        }
+
+        .chat-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .chat-header {
+            background: #007bff;
+            color: white;
+            padding: 10px;
+            text-align: center;
+            font-weight: bold;
+        }
+
+        .messages {
+            flex: 1;
+            padding: 10px;
+            overflow-y: auto;
+            background: #f9f9f9;
+        }
+
+        .message {
+            margin-bottom: 10px;
+            padding: 8px 12px;
+            border-radius: 10px;
+            max-width: 60%;
+        }
+
+        .sent {
+            background: #dcf8c6;
+            margin-left: auto;
+        }
+
+        .received {
+            background: #fff;
+            border: 1px solid #ccc;
+        }
+
+        .message-input {
+            display: flex;
+            padding: 10px;
+            background: #f0f0f0;
+        }
+
+        .message-input input {
+            flex: 1;
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+
+        .message-input button {
+            margin-left: 10px;
+            padding: 8px 12px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        .message-input button:hover {
+            background: #0056b3;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="sidebar">
+        <h2>📞 Atendimentos</h2>
+        <div id="contacts"></div>
+    </div>
+
+    <div class="chat-container">
+        <div class="chat-header">Selecione um contato</div>
+        <div class="messages" id="chat"></div>
+        <div class="message-input">
+            <input type="text" id="response" placeholder="Digite sua resposta...">
+            <button onclick="sendResponse()">Enviar</button>
+        </div>
+    </div>
+
+    <script>
+        const ws = new WebSocket("ws://localhost:3000");
+        let currentContact = null;
+        let messages = {}; 
+
+        ws.onopen = () => console.log("✅ Conectado ao WebSocket");
+
+        ws.onmessage = async (event) => {
+            console.log("📩 Mensagem recebida:", event.data);
+
+            try {
+                const messageData = JSON.parse(event.data);
+                const sender = messageData.from;
+                const text = messageData.text;
+                const pushName = messageData.pushName || sender.split('@')[0]; // Obter o nome (se disponível)
+
+                if (!messages[sender]) {
+                    messages[sender] = [];
+                    await addContact(sender, pushName);
+                }
+
+                messages[sender].push({
+                    from: sender,
+                    text,
+                    type: "received"
+                });
+
+                if (currentContact === sender) {
+                    renderChat();
+                    document.getElementById("chat").scrollTop = document.getElementById("chat").scrollHeight;
+                }
+
+                if (currentContact !== sender) {
+                    const contactElement = document.getElementById(`contact-${sender}`);
+                    if (contactElement) {
+                        contactElement.classList.add("new-message");
+                    }
+                }
+
+            } catch (error) {
+                console.error("❌ Erro ao processar mensagem:", error);
+            }
+        };
+
+        async function addContact(contact, pushName) {
+            const contactList = document.getElementById("contacts");
+            if (!document.getElementById(`contact-${contact}`)) {
+                const contactDiv = document.createElement("div");
+                contactDiv.classList.add("contact");
+                contactDiv.id = `contact-${contact}`;
+
+                // Adiciona foto e nome
+                const contactImage = document.createElement("img");
+                contactImage.src = await getProfilePicture(contact);
+                contactDiv.appendChild(contactImage);
+
+                const nameDiv = document.createElement("div");
+                nameDiv.classList.add("name");
+                nameDiv.innerText = pushName || contact.split('@')[0]; // Exibe nome ou número
+                contactDiv.appendChild(nameDiv);
+
+                contactDiv.onclick = () => openChat(contact);
+                contactList.appendChild(contactDiv);
+            }
+        }
+
+        async function getProfilePicture(contact) {
+            const url = `http://localhost:8081/chat/fetchProfilePictureUrl/Painel`;
+            try {
+                const response = await fetch(url);
+                const pictureUrl = await response.text(); 
+                return pictureUrl; // Retorna a URL da foto
+            } catch (error) {
+                console.error("❌ Erro ao carregar foto de perfil:", error);
+                return "https://via.placeholder.com/35"; // URL de placeholder em caso de erro
+            }
+        }
+
+        function openChat(contact) {
+            currentContact = contact;
+            document.querySelector(".chat-header").innerText = `Chat com ${contact}`;
+            renderChat();
+
+            document.querySelectorAll(".contact").forEach(el => el.classList.remove("active"));
+            document.getElementById(`contact-${contact}`).classList.add("active");
+        }
+
+        function renderChat() {
+            const chatDiv = document.getElementById("chat");
+            chatDiv.innerHTML = "";
+            if (messages[currentContact]) {
+                messages[currentContact].forEach(msg => {
+                    const msgDiv = document.createElement("div");
+                    msgDiv.classList.add("message", msg.type);
+                    msgDiv.innerText = msg.text;
+                    chatDiv.appendChild(msgDiv);
+                });
+            }
+        }
+
+        function sendResponse() {
+            const input = document.getElementById("response");
+            const text = input.value.trim();
+
+            if (!text || !currentContact) {
+                alert("Selecione um contato e digite uma resposta!");
+                return;
+            }
+
+            const sendButton = document.querySelector(".message-input button");
+            sendButton.disabled = true;
+            sendButton.innerHTML = "Enviando...";
+
+            fetch("http://localhost:8081/message/sendText/Painel", {
+                method: "POST",
+                headers: { 
+                    "Content-Type": "application/json",
+                    "apikey": "7B5A439A06D1-4128-966F-8D8B0C6DDDC2" 
+                },
+                body: JSON.stringify({
+                    number: currentContact,
+                    text
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                console.log("✅ Resposta enviada:", data);
+
+                if (!messages[currentContact]) {
+                    messages[currentContact] = [];
+                }
+
+                messages[currentContact].push({
+                    from: "Você",
+                    text,
+                    type: "sent"
+                });
+
+                renderChat();
+                input.value = "";
+                document.getElementById("chat").scrollTop = document.getElementById("chat").scrollHeight;
+            })
+            .catch(error => {
+                console.error("❌ Erro ao enviar mensagem:", error);
+                alert("Erro ao enviar mensagem. Verifique sua conexão.");
+            })
+            .finally(() => {
+                sendButton.disabled = false;
+                sendButton.textContent = "Enviar";
+            });
+        }
+    </script>
+
+</body>
+</html>
