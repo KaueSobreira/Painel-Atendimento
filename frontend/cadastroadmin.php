@@ -6,7 +6,7 @@
     <title>Cadastro Admin</title>
 </head>
 <body>
-        <form method="POST" action="back/cad_admin.php">
+        <form method="POST" action="../back/cad_admin.php">
             <p>Nome:<input type="text" name="user" id="user"></p>
             <p>Email:<input type="text" name="email" id="email"></p>
             <p>Senha:<input type="password" name="password" id="password"></p>

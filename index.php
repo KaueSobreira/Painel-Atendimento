@@ -36,7 +36,7 @@
 
             if (password_verify($userpassword, $row['senha'])) {
                 echo "Login bem-sucedido! Bem-vindo, " . htmlspecialchars($row['nome']);
-                header("Location: home.html");
+                header("Location: frontend/home.html");
                 exit();
             } else {
                 echo "Senha incorreta!";

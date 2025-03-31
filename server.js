@@ -31,11 +31,12 @@ app.post('/webhook/messages-upsert', (req, res) => {
 
     const messageData = req.body.data;
     const sender = messageData?.key?.remoteJid || 'Remetente desconhecido';
+    const name = messageData?.pushName;
     const messageContent = messageData?.message?.conversation || 'Mensagem não encontrada';
 
     console.log(`📩 Nova mensagem de ${sender}: ${messageContent}`);
 
-    const message = JSON.stringify({ from: sender, text: messageContent });
+    const message = JSON.stringify({ from: sender, name: name, text: messageContent });
 
     clients.forEach(client => {
         if (client.readyState === WebSocket.OPEN) {

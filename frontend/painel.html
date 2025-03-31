@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Painel de Atendimento</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+    <link rel="stylesheet" href="../stylepainel.css">
+</head>
+
+<body>
+    <div class="container">
+        <aside class="sidebar">
+            <div class="user-info">
+                <span class="user-name">Usuario</span>
+                <button class="home-btn"><i class="fa fa-home"></i></button>
+            </div>
+            <div class="search-box">
+                <input type="text" placeholder="Buscar...">
+                <button><i class="fa fa-search"></i></button>
+            </div>
+            <div id="contacts"></div>
+        </aside>
+        <main class="chat-area">
+            <div class="chat-container">
+                <div class="chat-header">Selecione um contato</div>
+                <div class="messages" id="chat"></div>
+            </div>
+        </main>
+        <footer class="chat-footer">
+            <form method="post" onsubmit="event.preventDefault(); sendResponse();">
+                <label class="attach-btn">
+                    <i class="fa fa-paperclip"></i>
+                    <input type="file" name="anexo" id="anexo">
+                </label>
+                <input type="text" id="response" placeholder="Digite sua mensagem">
+                <button type="submit">Enviar</button>
+            </form>
+        </footer>
+    </div>
+
+    <script>
+        const ws = new WebSocket("ws://localhost:3000");
+        let currentContact = null;
+        let messages = {};
+
+        ws.onopen = () => console.log("✅ Conectado ao WebSocket");
+
+        ws.onmessage = async (event) => {
+            console.log("📩 Mensagem recebida:", event.data);
+            try {
+                const messageData = JSON.parse(event.data);
+                const sender = messageData.from;
+                const text = messageData.text;
+                const pushName = messageData.pushName || sender.split('@')[0];
+                const profilePic = messageData.profilePic || 'default-avatar.png';
+
+                if (!messages[sender]) {
+                    messages[sender] = [];
+                    await addContact(sender, pushName, profilePic);
+                }
+
+                messages[sender].push({ from: sender, text, type: "received" });
+
+                if (currentContact === sender) {
+                    renderChat();
+                    document.getElementById("chat").scrollTop = document.getElementById("chat").scrollHeight;
+                }
+            } catch (error) {
+                console.error("❌ Erro ao processar mensagem:", error);
+            }
+        };
+
+        async function addContact(contact, pushName, profilePic) {
+            const contactList = document.getElementById("contacts");
+            if (!document.getElementById(`contact-${contact}`)) {
+                const contactDiv = document.createElement("div");
+                contactDiv.classList.add("contact");
+                contactDiv.id = `contact-${contact}`;
+                contactDiv.innerHTML = `<img src="${profilePic}" class="contact-img"> <span>${pushName || contact.split('@')[0]}</span>`;
+                contactDiv.onclick = () => openChat(contact);
+                contactList.appendChild(contactDiv);
+            }
+        }
+
+        function openChat(contact) {
+            currentContact = contact;
+            document.querySelector(".chat-header").innerText = `Chat com ${contact}`;
+            renderChat();
+        }
+
+        function renderChat() {
+            const chatDiv = document.getElementById("chat");
+            chatDiv.innerHTML = "";
+            if (messages[currentContact]) {
+                messages[currentContact].forEach(msg => {
+                    const msgDiv = document.createElement("div");
+                    msgDiv.classList.add("message", msg.type); 
+                    msgDiv.innerHTML = `<span class="message-text">${msg.text}</span>`;
+                    chatDiv.appendChild(msgDiv);
+                });
+            }
+        }
+
+
+        function sendResponse() {
+            const input = document.getElementById("response");
+            const text = input.value.trim();
+
+            if (!text || !currentContact) {
+                alert("Selecione um contato e digite uma resposta!");
+                return;
+            }
+
+            fetch("http://localhost:8081/message/sendText/Painel", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "apikey": "7B5A439A06D1-4128-966F-8D8B0C6DDDC2"
+                },
+                body: JSON.stringify({ number: currentContact, text })
+            })
+                .then(response => response.json())
+                .then(data => {
+                    console.log("✅ Resposta enviada:", data);
+                    if (!messages[currentContact]) messages[currentContact] = [];
+                    messages[currentContact].push({ from: "Você", text, type: "sent" });
+                    renderChat();
+                    input.value = "";
+                })
+                .catch(error => {
+                    console.error("❌ Erro ao enviar mensagem:", error);
+                    alert("Erro ao enviar mensagem. Verifique sua conexão.");
+                });
+        }
+    </script>
+</body>
+
+</html>
